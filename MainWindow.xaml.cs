@@ -36,6 +36,13 @@ namespace ParallelAsyncExample
             "https://docs.microsoft.com/gaming"
         };
 
+        /// <summary>
+        /// Handles the click event of the Start button.
+        /// Disables the Start button, clears the results text box,
+        /// and starts the asynchronous operation to sum page sizes.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The event data.</param>
         private void OnStartButtonClick(object sender, RoutedEventArgs e)
         {
             _startButton.IsEnabled = false;
@@ -64,7 +71,7 @@ namespace ParallelAsyncExample
 
             Task<int>[] downloadTasks = downloadTasksQuery.ToArray();
 
-            int[] lengths = Task.WhenAll(downloadTasks);
+            int[] lengths = await Task.WhenAll(downloadTasks);
             int total = lengths.Sum();
 
             await Dispatcher.BeginInvoke(() =>
@@ -78,10 +85,30 @@ namespace ParallelAsyncExample
 
         private async Task<int> ProcessUrlAsync(string url, HttpClient client)
         {
-            byte[] byteArray = await client.GetByteArrayAsync(url);
-            await DisplayResultsAsync(url, byteArray);
-
-            return byteArray.Length;
+            try
+            {
+                byte[] byteArray = await client.GetByteArrayAsync(url);
+                await DisplayResultsAsync(url, byteArray);
+                return byteArray.Length;
+            }
+            catch (HttpRequestException e)
+            {
+                // Handle specific HTTP request exceptions
+                await Dispatcher.BeginInvoke(() =>
+                {
+                    _resultsTextBox.Text += $"\nError downloading {url}: {e.Message}";
+                });
+                return 0; // Return 0 to indicate failure
+            }
+            catch (Exception e)
+            {
+                // Handle other exceptions
+                await Dispatcher.BeginInvoke(() =>
+                {
+                    _resultsTextBox.Text += $"\nUnexpected error downloading {url}: {e.Message}";
+                });
+                return 0; // Return 0 to indicate failure
+            }
         }
 
         private Task DisplayResultsAsync(string url, byte[] content) =>
